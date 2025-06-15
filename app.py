@@ -2,8 +2,18 @@ from datetime import datetime
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 import pymysql
+from fastapi.middleware.cors import CORSMiddleware  # 新增這行
 
 app=FastAPI()
+
+# 添加以下 CORS 設定
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # 允許所有來源（正式環境建議指定具體域名）
+    allow_credentials=True,
+    allow_methods=["*"],  # 允許所有 HTTP 方法
+    allow_headers=["*"],  # 允許所有 HTTP 標頭
+)
 
 # 資料庫配置
 db_config = {
