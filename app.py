@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 import pymysql
@@ -55,6 +55,27 @@ class LoginRequest(BaseModel):
     account: str
     password: str
 
+## Pydantic 模型 label
+class Label(BaseModel):
+    labelid:int
+    specificname:str
+
+
+# Pydantic 模型 - Uers 回應請求
+class User(BaseModel):
+    memberid: int  # 假設 member 表有 id 欄位
+    username: str  # 假設 member 表有 name 欄位
+    account:str
+    password:str
+    gender:bool
+    bir:date
+    phonenumber:str
+    createtime:datetime
+    isdelete:bool
+    # 根據你的 member 表結構新增其他欄位
+    class Config:
+        from_attributes = True  # 支援從 ORM 或字典轉換
+
 # 資料庫連線函數
 def get_db_connection():
     return pymysql.connect(**db_config)
@@ -93,6 +114,50 @@ async def login(request: LoginRequest):
         raise HTTPException(status_code=400, detail=str(e))
     finally:
         connection.close()
+#取得使用者
+@app.get("/getusers/")
+async def getusers():
+    try:
+        connection = get_db_connection()
+        with connection.cursor() as cursor:
+            sql = "SELECT memberid,username, account, password, gender, bir, phonenumber,createtime, isdelete FROM member "  
+            cursor.execute(sql)
+            columns = [col[0] for col in cursor.description]  # 獲取欄位名稱
+            users = cursor.fetchall()
+            if users:
+                user_list = [User(**dict(zip(columns, user))) for user in users]
+                print(user_list)
+                return {"message": "getuser successful", "users": user_list}
+            else:
+                raise HTTPException(status_code=401, detail="Invalid account or password")
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    finally:
+        connection.close()
+
+
+#標籤查詢
+@app.get("/getlabel/")
+async def label():
+    try:
+        connection = get_db_connection()
+        with connection.cursor() as cursor:
+            sql = "SELECT * from `specific`"  
+            cursor.execute(sql)
+            columns = [col[0] for col in cursor.description]  # 獲取欄位名稱
+            labels = cursor.fetchall()
+            if labels:
+                labels_list = [Label(**dict(zip(columns, label))) for label in labels]
+                print(labels_list)
+                return {"message": "getlabels successful", "labels": labels_list}
+            else:
+                raise HTTPException(status_code=401, detail="Invalid account or password")
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    finally:
+        connection.close()
+
+
 
 # 測試用端點
 @app.get("/")
