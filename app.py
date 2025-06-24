@@ -134,6 +134,19 @@ async def getusers():
         raise HTTPException(status_code=400, detail=str(e))
     finally:
         connection.close()
+#標籤新增
+@app.post('/addlabel/')
+async def addlabel(request: Label):
+    try:
+        connection = get_db_connection()
+        with connection.cursor() as cursor:
+            sql = "insert into specific where (labelid,specificname)VALUES(%s,%s)" 
+            cursor.execute(sql, (request.labelid, request.specificname))
+            connection.commit()
+            connection.close()
+            return {"message": "LabalCreate successful", "memberid": cursor.lastrowid}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 #標籤查詢
