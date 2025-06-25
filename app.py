@@ -198,7 +198,34 @@ async def label():
     finally:
         connection.close()
 
+# 更新 isdelete 狀態的 API
+@app.put('/updateuserstatus/{memberid}')
+async def update_user_status(memberid: int, isdelete: bool):
+    try:
+        connection = get_db_connection()
+        with connection.cursor() as cursor:
+            # 檢查用戶是否存在
+            check_sql = "SELECT memberid FROM users WHERE memberid = %s"
+            cursor.execute(check_sql, (memberid,))
+            existing_user = cursor.fetchone()
 
+            if not existing_user:
+                connection.close()
+                raise HTTPException(status_code=404, detail="用戶不存在")
+
+            # 更新 isdelete 狀態
+            update_sql = "UPDATE users SET isdelete = %s WHERE memberid = %s"
+            cursor.execute(update_sql, (isdelete, memberid))
+            connection.commit()
+            connection.close()
+
+            return {"message": "用戶狀態更新成功", "memberid": memberid, "isdelete": isdelete}
+    except pymysql.Error as e:
+        connection.close()
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        connection.close()
+        raise HTTPException(status_code=500, detail="服務器錯誤，請稍後再試")
 
 # 測試用端點
 @app.get("/")
