@@ -140,7 +140,7 @@ async def addlabel(request: Label):
     try:
         connection = get_db_connection()
         with connection.cursor() as cursor:
-            sql = "insert into specific where (labelid,specificname)VALUES(%s,%s)" 
+            sql = "INSERT INTO `specific` (labelid,specificname)VALUES(%s,%s)" 
             cursor.execute(sql, (request.labelid, request.specificname))
             connection.commit()
             connection.close()
@@ -148,6 +148,34 @@ async def addlabel(request: Label):
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
+# 標籤刪除 API
+@app.delete('/deletelabel/{labelid}')
+async def deletelabel(labelid: int):
+    try:
+        connection = get_db_connection()
+        with connection.cursor() as cursor:
+            # 檢查標籤是否存在
+            check_sql = "SELECT labelid FROM `specific` WHERE labelid = %s"
+            cursor.execute(check_sql, (labelid,))
+            existing_label = cursor.fetchone()
+
+            if not existing_label:
+                connection.close()
+                raise HTTPException(status_code=404, detail="標籤不存在")
+
+            # 執行刪除操作
+            delete_sql = "DELETE FROM `specific` WHERE labelid = %s"
+            cursor.execute(delete_sql, (labelid,))
+            connection.commit()
+            connection.close()
+
+            return {"message": "標籤刪除成功"}
+    except pymysql.Error as e:
+        connection.close()
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        connection.close()
+        raise HTTPException(status_code=500, detail="服務器錯誤，請稍後再試")
 
 #標籤查詢
 @app.get("/getlabel/")
