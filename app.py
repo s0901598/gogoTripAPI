@@ -1,4 +1,5 @@
 from datetime import date, datetime
+from typing import List, Optional
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 import pymysql
@@ -55,6 +56,11 @@ class LoginRequest(BaseModel):
     account: str
     password: str
 
+# Pydantic 模型 - 封禁請求
+class isdelete(BaseModel):
+    memberid: int
+    isdelete: bool    
+
 ## Pydantic 模型 label
 class Label(BaseModel):
     labelid:int
@@ -75,6 +81,15 @@ class User(BaseModel):
     # 根據你的 member 表結構新增其他欄位
     class Config:
         from_attributes = True  # 支援從 ORM 或字典轉換
+
+class SearchData(BaseModel):
+    username: Optional[str] = ""
+    phonenumber: Optional[str] = ""
+    isdelete: Optional[bool] = None
+
+class GetUsersResponse(BaseModel):
+    message: str
+    users: List[User]
 
 # 資料庫連線函數
 def get_db_connection():
@@ -115,13 +130,33 @@ async def login(request: LoginRequest):
     finally:
         connection.close()
 #取得使用者
-@app.get("/getusers/")
-async def getusers():
+@app.post("/getusers/", response_model=GetUsersResponse)
+async def getusers(search: SearchData):
     try:
         connection = get_db_connection()
         with connection.cursor() as cursor:
-            sql = "SELECT memberid,username, account, password, gender, bir, phonenumber,createtime, isdelete FROM member "  
-            cursor.execute(sql)
+            # 基礎 SQL 查詢
+            sql = """
+            SELECT memberid, username, account, password, gender, 
+                   NULLIF(bir, '0000-00-00') AS bir, 
+                   phonenumber, createtime, isdelete 
+            FROM member
+            WHERE 1=1
+            """
+            params = []
+
+            # 動態添加查詢條件
+            if search.username:
+                sql += " AND username LIKE %s"
+                params.append(f"%{search.username}%")
+            if search.phonenumber:
+                sql += " AND phonenumber LIKE %s"
+                params.append(f"%{search.phonenumber}%")
+            if search.isdelete is not None:
+                sql += " AND isdelete = %s"
+                params.append(search.isdelete)
+
+            cursor.execute(sql,params)
             columns = [col[0] for col in cursor.description]  # 獲取欄位名稱
             users = cursor.fetchall()
             if users:
@@ -129,7 +164,7 @@ async def getusers():
                 print(user_list)
                 return {"message": "getuser successful", "users": user_list}
             else:
-                raise HTTPException(status_code=401, detail="Invalid account or password")
+                return {"message": "getuser successful", "users": []}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
     finally:
@@ -199,14 +234,14 @@ async def label():
         connection.close()
 
 # 更新 isdelete 狀態的 API
-@app.put('/updateuserstatus/{memberid}')
-async def update_user_status(memberid: int, isdelete: bool):
+@app.put('/updateuserstatus')
+async def update_user_status(request:isdelete):
     try:
         connection = get_db_connection()
         with connection.cursor() as cursor:
             # 檢查用戶是否存在
-            check_sql = "SELECT memberid FROM users WHERE memberid = %s"
-            cursor.execute(check_sql, (memberid,))
+            check_sql = "SELECT memberid FROM member WHERE memberid = %s"
+            cursor.execute(check_sql, (request.memberid))
             existing_user = cursor.fetchone()
 
             if not existing_user:
@@ -214,12 +249,12 @@ async def update_user_status(memberid: int, isdelete: bool):
                 raise HTTPException(status_code=404, detail="用戶不存在")
 
             # 更新 isdelete 狀態
-            update_sql = "UPDATE users SET isdelete = %s WHERE memberid = %s"
-            cursor.execute(update_sql, (isdelete, memberid))
+            update_sql = "UPDATE member SET isdelete = %s WHERE memberid = %s"
+            cursor.execute(update_sql, (request.isdelete, request.memberid))
             connection.commit()
             connection.close()
 
-            return {"message": "用戶狀態更新成功", "memberid": memberid, "isdelete": isdelete}
+            return {"message": "用戶狀態更新成功", "memberid": request.memberid, "isdelete": request.isdelete}
     except pymysql.Error as e:
         connection.close()
         raise HTTPException(status_code=400, detail=str(e))
