@@ -11,8 +11,8 @@ async def addlabel(request:Label):
     try:
         connection = get_db_connection()
         with connection.cursor() as cursor:
-            sql = "INSERT INTO `specific` (labelid,specificname)VALUES(%s,%s)" 
-            cursor.execute(sql, (request.labelid, request.specificname))
+            sql = "INSERT INTO `specific` (labelid,specificname,iconname)VALUES(%s,%s,%s)" 
+            cursor.execute(sql, (request.labelid, request.specificname,request.iconname))
             connection.commit()
             connection.close()
             return {"message": "LabalCreate successful", "memberid": cursor.lastrowid}
