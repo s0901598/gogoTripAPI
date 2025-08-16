@@ -1,4 +1,4 @@
-#標籤新增
+
 from fastapi import APIRouter, HTTPException
 import pymysql
 from Database.DataBase import get_db_connection
@@ -6,6 +6,7 @@ from .LabelReq import Label
 
 router=APIRouter(prefix="/label")
 
+#標籤新增
 @router.post('/addlabel/')
 async def addlabel(request:Label):
     try:
